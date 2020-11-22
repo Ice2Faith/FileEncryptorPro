@@ -1,0 +1,607 @@
+
+// FileEncryptorProDlg.cpp : 实现文件
+//
+
+#include "stdafx.h"
+#include "FileEncryptorPro.h"
+#include "FileEncryptorProDlg.h"
+#include "afxdialogex.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
+
+// 用于应用程序“关于”菜单项的 CAboutDlg 对话框
+
+class CAboutDlg : public CDialogEx
+{
+public:
+	CAboutDlg();
+
+// 对话框数据
+	enum { IDD = IDD_ABOUTBOX };
+
+	protected:
+	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
+
+// 实现
+protected:
+	DECLARE_MESSAGE_MAP()
+};
+
+CAboutDlg::CAboutDlg() : CDialogEx(CAboutDlg::IDD)
+{
+}
+
+void CAboutDlg::DoDataExchange(CDataExchange* pDX)
+{
+	CDialogEx::DoDataExchange(pDX);
+}
+
+BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
+END_MESSAGE_MAP()
+
+
+// CFileEncryptorProDlg 对话框
+
+
+
+CFileEncryptorProDlg::CFileEncryptorProDlg(CWnd* pParent /*=NULL*/)
+	: CDialogEx(CFileEncryptorProDlg::IDD, pParent)
+	, m_str_Password(_T(""))
+	, m_str_SavePath(_T(""))
+	, m_str_OpenFile(_T(""))
+	, m_isRunning(false)
+	, m_pEncrypteInfo(NULL)
+	, m_str_process_info(_T(""))
+{
+	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+}
+
+void CFileEncryptorProDlg::DoDataExchange(CDataExchange* pDX)
+{
+	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_LIST_WORK_LIST, m_lb_WorkList);
+	DDX_Control(pDX, IDC_BUTTON_START_WORK, m_btn_StartWork);
+	DDX_Control(pDX, IDC_BUTTON_CLEAR_ALL_ITEM, m_btn_ClearAllItem);
+	DDX_Control(pDX, IDC_BUTTON_REMOVE_SELECT_ITEM, m_btn_RemoveSelectItem);
+	DDX_Text(pDX, IDC_EDIT_PASSWORD, m_str_Password);
+	DDX_Text(pDX, IDC_MFCEDITBROWSE_SAVE_PATH, m_str_SavePath);
+	DDX_Text(pDX, IDC_MFCEDITBROWSE_OPEN_FILE, m_str_OpenFile);
+	DDX_Control(pDX, IDC_BUTTON_OPEN_FILE, m_btn_OpenFile);
+	DDX_Control(pDX, IDC_MFCEDITBROWSE_OPEN_FILE, m_edit_OpenFile);
+	DDX_Control(pDX, IDC_MFCEDITBROWSE_SAVE_PATH, m_edit_SavePath);
+	DDX_Control(pDX, IDC_EDIT_PASSWORD, m_edit_Password);
+	DDX_Control(pDX, IDC_CHECK_NOT_ADD_SUFFIX, m_ckbtn_AddDefSuffix);
+	DDX_Control(pDX, IDC_CHECK_DELETE_SOURCE_FILE, m_ckbtn_DeleteSourceFile);
+	DDX_Control(pDX, IDC_PROGRESS_BAR, m_pro_Process);
+	DDX_Text(pDX, IDC_STATIC_PROCESS_INFO, m_str_process_info);
+}
+
+BEGIN_MESSAGE_MAP(CFileEncryptorProDlg, CDialogEx)
+	ON_WM_SYSCOMMAND()
+	ON_WM_PAINT()
+	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDOK, &CFileEncryptorProDlg::OnBnClickedOk)
+	ON_BN_CLICKED(IDC_BUTTON_OPEN_FILE, &CFileEncryptorProDlg::OnBnClickedButtonOpenFile)
+	ON_BN_CLICKED(IDC_BUTTON_OPEN_SAVE_PATH, &CFileEncryptorProDlg::OnBnClickedButtonOpenSavePath)
+	ON_BN_CLICKED(IDC_BUTTON_REMOVE_SELECT_ITEM, &CFileEncryptorProDlg::OnBnClickedButtonRemoveSelectItem)
+	ON_BN_CLICKED(IDC_BUTTON_CLEAR_ALL_ITEM, &CFileEncryptorProDlg::OnBnClickedButtonClearAllItem)
+	ON_BN_CLICKED(IDC_BUTTON_START_WORK, &CFileEncryptorProDlg::OnBnClickedButtonStartWork)
+	ON_WM_DROPFILES()
+	ON_MESSAGE(UM_THREAD_PROCESS_INFO, EncryptMsgProc)
+END_MESSAGE_MAP()
+
+
+// CFileEncryptorProDlg 消息处理程序
+
+BOOL CFileEncryptorProDlg::OnInitDialog()
+{
+	CDialogEx::OnInitDialog();
+
+	// 将“关于...”菜单项添加到系统菜单中。
+
+	// IDM_ABOUTBOX 必须在系统命令范围内。
+	ASSERT((IDM_ABOUTBOX & 0xFFF0) == IDM_ABOUTBOX);
+	ASSERT(IDM_ABOUTBOX < 0xF000);
+
+	CMenu* pSysMenu = GetSystemMenu(FALSE);
+	if (pSysMenu != NULL)
+	{
+		BOOL bNameValid;
+		CString strAboutMenu;
+		bNameValid = strAboutMenu.LoadString(IDS_ABOUTBOX);
+		ASSERT(bNameValid);
+		if (!strAboutMenu.IsEmpty())
+		{
+			pSysMenu->AppendMenu(MF_SEPARATOR);
+			pSysMenu->AppendMenu(MF_STRING, IDM_ABOUTBOX, strAboutMenu);
+		}
+	}
+
+	// 设置此对话框的图标。  当应用程序主窗口不是对话框时，框架将自动
+	//  执行此操作
+	SetIcon(m_hIcon, TRUE);			// 设置大图标
+	SetIcon(m_hIcon, FALSE);		// 设置小图标
+
+	// TODO:  在此添加额外的初始化代码
+	InitControls();
+	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
+}
+
+void CFileEncryptorProDlg::OnSysCommand(UINT nID, LPARAM lParam)
+{
+	if ((nID & 0xFFF0) == IDM_ABOUTBOX)
+	{
+		CAboutDlg dlgAbout;
+		dlgAbout.DoModal();
+	}
+	else
+	{
+		CDialogEx::OnSysCommand(nID, lParam);
+	}
+}
+
+// 如果向对话框添加最小化按钮，则需要下面的代码
+//  来绘制该图标。  对于使用文档/视图模型的 MFC 应用程序，
+//  这将由框架自动完成。
+
+void CFileEncryptorProDlg::OnPaint()
+{
+	if (IsIconic())
+	{
+		CPaintDC dc(this); // 用于绘制的设备上下文
+
+		SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
+
+		// 使图标在工作区矩形中居中
+		int cxIcon = GetSystemMetrics(SM_CXICON);
+		int cyIcon = GetSystemMetrics(SM_CYICON);
+		CRect rect;
+		GetClientRect(&rect);
+		int x = (rect.Width() - cxIcon + 1) / 2;
+		int y = (rect.Height() - cyIcon + 1) / 2;
+
+		// 绘制图标
+		dc.DrawIcon(x, y, m_hIcon);
+	}
+	else
+	{
+		CDialogEx::OnPaint();
+	}
+}
+
+//当用户拖动最小化窗口时系统调用此函数取得光标
+//显示。
+HCURSOR CFileEncryptorProDlg::OnQueryDragIcon()
+{
+	return static_cast<HCURSOR>(m_hIcon);
+}
+
+
+
+void CFileEncryptorProDlg::OnBnClickedOk()
+{
+	// TODO:  在此添加控件通知处理程序代码
+	//CDialogEx::OnOK();
+}
+
+
+void CFileEncryptorProDlg::InitControls()
+{
+	((CButton*)GetDlgItem(IDC_RADIO_ENCRYPTE))->SetCheck(1);
+	((CButton*)GetDlgItem(IDC_RADIO_DECRYTE))->SetCheck(0);
+	m_pro_Process.SetRange(0,100);
+	m_pro_Process.SetStep(1);
+}
+
+
+void CFileEncryptorProDlg::OnBnClickedButtonOpenFile()
+{
+	AddOpenFileToList();
+}
+
+
+void CFileEncryptorProDlg::OnBnClickedButtonOpenSavePath()
+{
+	UpdateData(TRUE);
+	ShellExecute(NULL, TEXT("open"), m_str_SavePath, NULL, NULL, SW_SHOW);
+}
+
+
+void CFileEncryptorProDlg::OnBnClickedButtonRemoveSelectItem()
+{
+	RemoveSelectListItem();
+}
+
+
+void CFileEncryptorProDlg::OnBnClickedButtonClearAllItem()
+{
+	m_lb_WorkList.ResetContent();
+}
+
+
+
+void CFileEncryptorProDlg::RemoveSelectListItem()
+{
+	int selIndex = m_lb_WorkList.GetCurSel();
+	if (selIndex == -1)
+		return;
+	m_lb_WorkList.DeleteString(selIndex);
+}
+
+
+void CFileEncryptorProDlg::OnDropFiles(HDROP hDropInfo)
+{
+	int nDropCount = DragQueryFile(hDropInfo, -1, NULL, 0);
+	for (int i = 0; i< nDropCount; i++)
+	{
+		WCHAR szPath[MAX_PATH];
+		DragQueryFile(hDropInfo, i, szPath, MAX_PATH);
+		m_lb_WorkList.AddString(szPath);
+	}
+	DragFinish(hDropInfo);
+
+	CDialogEx::OnDropFiles(hDropInfo);
+}
+
+
+
+BOOL CFileEncryptorProDlg::PreTranslateMessage(MSG* pMsg)
+{
+	if (m_isRunning)
+	{
+		return CDialogEx::PreTranslateMessage(pMsg);
+	}
+	if (pMsg->hwnd == m_lb_WorkList.GetSafeHwnd())
+	{
+		int selIndex = m_lb_WorkList.GetCurSel();
+		if (pMsg->message == WM_KEYDOWN)
+		{
+			switch (pMsg->wParam)
+			{
+			case VK_DELETE:
+				RemoveSelectListItem();
+				break;
+			case VK_UP:
+				m_lb_WorkList.SetCurSel(selIndex + 1);
+				break;
+			case VK_DOWN:
+				m_lb_WorkList.SetCurSel(selIndex - 1 < -1 ? -1 : selIndex - 1);
+				break;
+			}
+		}
+	}
+	if (pMsg->hwnd == m_edit_OpenFile.GetSafeHwnd())
+	{
+		if (pMsg->message == WM_KEYDOWN)
+		{
+			switch (pMsg->wParam)
+			{
+			case VK_DELETE:
+				m_str_OpenFile = "";
+				UpdateData(FALSE);
+				break;
+			case VK_RETURN:
+				AddOpenFileToList();
+				break;
+			case VK_UP:
+				m_edit_Password.SetFocus();
+				break;
+			case VK_DOWN:
+				m_edit_SavePath.SetFocus();
+				break;
+			}
+		}
+	}
+	if (pMsg->hwnd == m_edit_SavePath.GetSafeHwnd())
+	{
+		if (pMsg->message == WM_KEYDOWN)
+		{
+			switch (pMsg->wParam)
+			{
+			case VK_DELETE:
+				m_str_SavePath = "";
+				UpdateData(FALSE);
+				break;
+			case VK_RETURN:
+				m_edit_Password.SetFocus();
+				break;
+			case VK_UP:
+				m_edit_OpenFile.SetFocus();
+				break;
+			case VK_DOWN:
+				m_edit_Password.SetFocus();
+				break;
+			}
+		}
+	}
+	if (pMsg->hwnd == m_edit_Password.GetSafeHwnd())
+	{
+		if (pMsg->message == WM_KEYDOWN)
+		{
+			switch (pMsg->wParam)
+			{
+			case VK_DELETE:
+				m_str_Password = "";
+				UpdateData(FALSE);
+				break;
+			case VK_RETURN:
+				m_btn_StartWork.SetActiveWindow();
+				break;
+			case VK_UP:
+				m_edit_SavePath.SetFocus();
+				break;
+			case VK_DOWN:
+				m_edit_OpenFile.SetFocus();
+				break;
+			}
+		}
+	}
+	if (pMsg->message == WM_KEYDOWN)
+	{
+		switch (pMsg->wParam)
+		{
+		case VK_LEFT:
+			((CButton*)GetDlgItem(IDC_RADIO_ENCRYPTE))->SetCheck(1);
+			((CButton*)GetDlgItem(IDC_RADIO_DECRYTE))->SetCheck(0);
+			break;
+		case VK_RIGHT:
+			((CButton*)GetDlgItem(IDC_RADIO_ENCRYPTE))->SetCheck(0);
+			((CButton*)GetDlgItem(IDC_RADIO_DECRYTE))->SetCheck(1);
+			break;
+		case VK_HOME:
+			if (IsDlgButtonChecked(IDC_CHECK_NOT_ADD_SUFFIX) == 1)
+				((CButton*)GetDlgItem(IDC_CHECK_NOT_ADD_SUFFIX))->SetCheck(0);
+			else
+				((CButton*)GetDlgItem(IDC_CHECK_NOT_ADD_SUFFIX))->SetCheck(1);
+			break;
+		case VK_END:
+			if (IsDlgButtonChecked(IDC_CHECK_DELETE_SOURCE_FILE) == 1)
+				((CButton*)GetDlgItem(IDC_CHECK_DELETE_SOURCE_FILE))->SetCheck(0);
+			else
+				((CButton*)GetDlgItem(IDC_CHECK_DELETE_SOURCE_FILE))->SetCheck(1);
+			break;
+		}
+	}
+	return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+
+void CFileEncryptorProDlg::AddOpenFileToList()
+{
+	UpdateData(TRUE);
+	m_str_OpenFile = m_str_OpenFile.Trim();
+	bool exist = false;
+	int count = m_lb_WorkList.GetCount();
+	CString str;
+	for (int i = 0; i < count; i++)
+	{
+		m_lb_WorkList.GetText(i, str);
+		if (str == m_str_OpenFile)
+		{
+			exist = true;
+			break;
+		}
+	}
+	if (exist==false)
+		m_lb_WorkList.AddString(m_str_OpenFile);
+	m_str_OpenFile = "";
+	UpdateData(FALSE);
+}
+int GetFileNameIndexFromPath(char * path,char pathSpliter)
+{
+	int index = strlen(path)-1;
+	while (index > 0 && path[index] != pathSpliter)
+		index--;
+	return index;
+}
+int GetSuffixIndexFromPath(char * path, char pathSpliter)
+{
+	int index = strlen(path) - 1;
+	while (index > 0 && path[index] != pathSpliter && path[index]!='.')
+		index--;
+	return index;
+}
+void StringToUpper(char * str)
+{
+	while (*str)
+	{
+		if (*str >= 'a'&&*str <= 'z')
+			*str &= ~32;
+		str++;
+	}
+	
+}
+void StringToLower(char * str)
+{
+	while (*str)
+	{
+		if (*str >= 'A'&&*str <= 'Z')
+			*str |= 32;
+		str++;
+	}
+}
+DWORD WINAPI EncryptThreadProc( LPVOID lpThreadParameter )
+{
+	const char pathSpliter = '\\';
+	const char lockFileSuffix[] = { ".flcl" };
+	PEncrypteInfomation info = (PEncrypteInfomation)lpThreadParameter;
+	USES_CONVERSION;
+	ProcessInfo pinfo = { 0 };
+	char szSrcFileName[MAX_PATH] = { 0 };
+	char szDstFileName[MAX_PATH] = { 0 };
+	pinfo.nSuccessCount = 0;
+	pinfo.nFailureCount = 0;
+	pinfo.nProcessCount = info->pWorkList->GetCount();
+
+	SendMessage(info->hWnd, UM_THREAD_PROCESS_INFO, (WPARAM)0, (LPARAM)&pinfo);
+	for (int i = 0; i < pinfo.nProcessCount; i++)
+	{
+		ZeroMemory(szSrcFileName, MAX_PATH);
+		ZeroMemory(szDstFileName, MAX_PATH);
+
+		TCHAR str[MAX_PATH] = { 0 };
+		info->pWorkList->GetText(i,str);
+		strcpy(szSrcFileName,T2A(str));
+		if (info->bisEncrypte)
+		{
+			int fni = GetFileNameIndexFromPath(szSrcFileName, pathSpliter);
+			sprintf(szDstFileName, "%s%c%s%s", info->szSavePath, pathSpliter, &szSrcFileName[fni], (info->bisNoSuffix ? "" : lockFileSuffix));
+			sprintf(pinfo.szSrcFileName, "%s\0", &szSrcFileName[fni]);
+			sprintf(pinfo.szDstFileName, "%s%s\0", &szSrcFileName[fni], (info->bisNoSuffix ? "" : lockFileSuffix));
+		}
+		else
+		{
+			int fni = GetFileNameIndexFromPath(szSrcFileName, pathSpliter);
+			sprintf(szDstFileName, "%s%c%s", info->szSavePath, pathSpliter, &szSrcFileName[fni]);
+			int sfi = GetSuffixIndexFromPath(szDstFileName, pathSpliter);
+			char suffix[20] = { 0 };
+			strcpy(suffix, &szDstFileName[sfi]);
+			StringToLower(suffix);
+			if (strcmp(suffix, lockFileSuffix) == 0)
+			{
+				szDstFileName[sfi] = 0;
+			}
+			sprintf(pinfo.szSrcFileName, "%s\0", &szSrcFileName[fni]);
+			sprintf(pinfo.szDstFileName, "%s\0", &szDstFileName[fni]);
+		}
+		sprintf(pinfo.szSrcFileName,"%s\0",szSrcFileName);
+		sprintf(pinfo.szDstFileName, "%s\0", szDstFileName);
+		int ret = 0;
+		if (info->bisEncrypte)
+			ret=file_lock_core_encrypt(szSrcFileName, szDstFileName, info->szPassword);
+		else
+			ret=file_lock_core_decrypt(szSrcFileName, szDstFileName, info->szPassword);
+
+		if (ret == 0)
+		{
+			pinfo.nSuccessCount++;
+			pinfo.bisSuccess = true;
+		}
+		else
+		{
+			pinfo.nFailureCount++;
+			pinfo.bisSuccess = false;
+		}
+
+		if (info->bisDelSource && ret==0)
+			DeleteFileA(szSrcFileName);
+
+		SendMessage(info->hWnd, UM_THREAD_PROCESS_INFO, (WPARAM)(int)(i*1.0 / pinfo.nProcessCount * 100), (LPARAM)&pinfo);
+	}
+	SendMessage(info->hWnd, UM_THREAD_PROCESS_INFO, (WPARAM)100, (LPARAM)&pinfo);
+
+	return 0;
+}
+LRESULT CFileEncryptorProDlg::EncryptMsgProc(WPARAM wParam, LPARAM lParam)
+{
+	int process = (int)wParam;
+	int result = (int)lParam;
+	m_pro_Process.SetPos(process);
+	if (process == 0)
+	{
+		disableControls();
+	}
+	if (process==100)
+	{
+		enableControls();
+		delete m_pEncrypteInfo;
+		m_pEncrypteInfo = NULL;
+	}
+	PProcessInfo pinfo = (PProcessInfo)lParam;
+	USES_CONVERSION;
+	m_str_process_info.Format(TEXT("状态：%s 成功:失败:总数=%d/%d/%d %s --> %s"),
+		(pinfo->bisSuccess?TEXT("成功"):TEXT("失败")),
+		pinfo->nSuccessCount,
+		pinfo->nFailureCount,
+		pinfo->nProcessCount,
+		A2T(pinfo->szSrcFileName),
+		A2T(pinfo->szDstFileName)
+		);
+	UpdateData(FALSE);
+	MessageBox(A2T(pinfo->szSrcFileName),
+		A2T(pinfo->szDstFileName));
+	return 0;
+}
+
+void CFileEncryptorProDlg::OnBnClickedButtonStartWork()
+{
+	char szSavePath[MAX_PATH] = { 0 };
+	char szPassword[MAXBYTE] = { 0 };
+	UpdateData(TRUE);
+	m_str_SavePath = m_str_SavePath.Trim();
+	m_str_Password = m_str_Password.Trim();
+	if (m_str_SavePath.GetLength() == 0)
+	{
+		MessageBox(TEXT("错误！保存路径不能为空"));
+		return;
+	}
+
+	if (m_str_Password.GetLength() == 0)
+	{
+		MessageBox(TEXT("错误！密码不能为空"));
+		return;
+	}
+
+	if (m_lb_WorkList.GetCount() == 0)
+	{
+		MessageBox(TEXT("错误！请先添加待处理项"));
+		return;
+	}
+		
+	USES_CONVERSION;
+	strcpy(szSavePath, T2A(m_str_SavePath));
+	strcpy(szPassword, T2A(m_str_Password));
+	UpdateData(FALSE);
+
+	
+	
+	
+	m_pEncrypteInfo = new EncrypteInfomation();
+	m_pEncrypteInfo->hWnd = this->GetSafeHwnd();
+	strcpy(m_pEncrypteInfo->szSavePath, szSavePath);
+	strcpy(m_pEncrypteInfo->szPassword, szPassword);
+	m_pEncrypteInfo->pWorkList = &m_lb_WorkList;
+	m_pEncrypteInfo->bisEncrypte = ((IsDlgButtonChecked(IDC_RADIO_ENCRYPTE)==1)?true:false);
+	m_pEncrypteInfo->bisNoSuffix = ((IsDlgButtonChecked(IDC_CHECK_NOT_ADD_SUFFIX) == 1) ? true : false);
+	m_pEncrypteInfo->bisDelSource = ((IsDlgButtonChecked(IDC_CHECK_DELETE_SOURCE_FILE) == 1) ? true : false);
+
+	m_hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EncryptThreadProc, (LPVOID)m_pEncrypteInfo, 0, NULL);
+	
+	
+}
+
+
+
+void CFileEncryptorProDlg::enableControls()
+{
+	m_isRunning = false;
+	m_btn_StartWork.EnableWindow(TRUE);
+	m_btn_ClearAllItem.EnableWindow(TRUE);
+	m_btn_RemoveSelectItem.EnableWindow(TRUE);
+	m_btn_OpenFile.EnableWindow(TRUE);
+	m_edit_SavePath.EnableWindow(TRUE);
+	m_edit_Password.EnableWindow(TRUE);
+	((CButton*)GetDlgItem(IDC_RADIO_ENCRYPTE))->EnableWindow(TRUE);
+	((CButton*)GetDlgItem(IDC_RADIO_DECRYTE))->EnableWindow(TRUE);
+	((CButton*)GetDlgItem(IDC_CHECK_DELETE_SOURCE_FILE))->EnableWindow(TRUE);
+	((CButton*)GetDlgItem(IDC_CHECK_NOT_ADD_SUFFIX))->EnableWindow(TRUE);
+}
+
+
+void CFileEncryptorProDlg::disableControls()
+{
+	m_isRunning = true;
+	m_btn_StartWork.EnableWindow(FALSE);
+	m_btn_ClearAllItem.EnableWindow(FALSE);
+	m_btn_RemoveSelectItem.EnableWindow(FALSE);
+	m_btn_OpenFile.EnableWindow(FALSE);
+	m_edit_SavePath.EnableWindow(FALSE);
+	m_edit_Password.EnableWindow(FALSE);
+	((CButton*)GetDlgItem(IDC_RADIO_ENCRYPTE))->EnableWindow(FALSE);
+	((CButton*)GetDlgItem(IDC_RADIO_DECRYTE))->EnableWindow(FALSE);
+	((CButton*)GetDlgItem(IDC_CHECK_DELETE_SOURCE_FILE))->EnableWindow(FALSE);
+	((CButton*)GetDlgItem(IDC_CHECK_NOT_ADD_SUFFIX))->EnableWindow(FALSE);
+}
